@@ -32,8 +32,10 @@ const UBER = {
     CUSTOMER_ID: process.env.UBER_CUSTOMER_ID,
     SCOPE: 'eats.deliveries'
 };
+console.log("🚀 ~ UBER:", UBER)
 
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/uber_direct';
+console.log("🚀 ~ MONGO_URI:", MONGO_URI)
 
 // ====================== MONGODB ======================
 
