@@ -248,3 +248,7 @@ app.post('/webhook/uber', async (req, res) => {
 app.listen(PORT, () => {
     console.log(`Uber Direct Server running on port ${PORT}`);
 });
+
+app.get('/', (req, res) => {
+  res.send('Hello World!')
+})
