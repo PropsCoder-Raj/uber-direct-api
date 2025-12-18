@@ -22,7 +22,7 @@ require("dotenv").config();
 const app = express();
 app.use(bodyParser.json());
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 const UBER = {
     BASE_URL: 'https://api.uber.com',
