@@ -146,7 +146,7 @@ async function getAccessToken() {
 
 async function uberRequest(method, url, data = null) {
     try {
-        
+
         if (!UBER.CUSTOMER_ID) throw new Error("Missing UBER_CUSTOMER_ID in .env");
         const token = await getAccessToken();
 
@@ -161,7 +161,7 @@ async function uberRequest(method, url, data = null) {
         });
 
         return response.data;
-    
+
     } catch (error) {
         console.log("🚀 ~ uberRequest ~ error:", error)
     }
@@ -353,31 +353,31 @@ app.delete("/api/quotes/:id", async (req, res) => {
 });
 
 function addressObjectToString(addr) {
-  if (!addr) return "";
+    if (!addr) return "";
 
-  const d = addr || {};
+    const d = addr || {};
 
-  return [
-    d.street,
-    d.city,
-    d.state,
-    d.postal_code,
-    d.country,
-  ]
-    .filter(Boolean)
-    .join(", ");
+    return [
+        d.street,
+        d.city,
+        d.state,
+        d.postal_code,
+        d.country,
+    ]
+        .filter(Boolean)
+        .join(", ");
 }
 
 function extractName(addr, fallbackName = "") {
-  if (!addr) return fallbackName;
-  if (typeof addr === "string") return fallbackName;
-  return addr.name || fallbackName;
+    if (!addr) return fallbackName;
+    if (typeof addr === "string") return fallbackName;
+    return addr.name || fallbackName;
 }
 
 function extractPhone(addr, fallbackPhone = "") {
-  if (!addr) return fallbackPhone;
-  if (typeof addr === "string") return fallbackPhone;
-  return addr.phone_number || fallbackPhone;
+    if (!addr) return fallbackPhone;
+    if (typeof addr === "string") return fallbackPhone;
+    return addr.phone_number || fallbackPhone;
 }
 
 // Request Uber quote for a Quote document
@@ -411,64 +411,64 @@ app.post("/api/quotes/:id/request-uber-quote", async (req, res) => {
 // ====================== API: DELIVERIES ======================
 
 app.post("/api/deliveries/from-quote/:quoteDbId", async (req, res) => {
-  try {
-    const quoteDoc = await Quote.findById(req.params.quoteDbId);
-    if (!quoteDoc) return res.status(404).json({ message: "Quote not found" });
-    if (!quoteDoc.quoteId)
-      return res.status(400).json({ message: "Quote has no Uber quoteId. Request Uber Quote first." });
+    try {
+        const quoteDoc = await Quote.findById(req.params.quoteDbId);
+        if (!quoteDoc) return res.status(404).json({ message: "Quote not found" });
+        if (!quoteDoc.quoteId)
+            return res.status(400).json({ message: "Quote has no Uber quoteId. Request Uber Quote first." });
 
-    // Load customer + warehouse to ensure we have name/phone (optional but recommended)
-    const customer = await User.findById(quoteDoc.customerId);
-    const warehouse = await User.findById(quoteDoc.warehouseId);
+        // Load customer + warehouse to ensure we have name/phone (optional but recommended)
+        const customer = await User.findById(quoteDoc.customerId);
+        const warehouse = await User.findById(quoteDoc.warehouseId);
 
-    const external_id =
-      req.body.external_id || `JOB_${String(quoteDoc._id).slice(-6)}_${Date.now()}`;
+        const external_id =
+            req.body.external_id || `JOB_${String(quoteDoc._id).slice(-6)}_${Date.now()}`;
 
-    const payload = {
-      quote_id: quoteDoc.quoteId,
+        const payload = {
+            quote_id: quoteDoc.quoteId,
 
-      pickup_address: addressObjectToString(quoteDoc.pickupAddress),
-      pickup_name: extractName(quoteDoc.pickupAddress, warehouse?.name || "Warehouse"),
-      pickup_phone_number: extractPhone(quoteDoc.pickupAddress, warehouse?.phone_number || "+14155552671"),
+            pickup_address: addressObjectToString(quoteDoc.pickupAddress),
+            pickup_name: extractName(quoteDoc.pickupAddress, warehouse?.name || "Warehouse"),
+            pickup_phone_number: extractPhone(quoteDoc.pickupAddress, warehouse?.phone_number || "+14155552671"),
 
-      dropoff_address: addressObjectToString(quoteDoc.dropoffAddress),
-      dropoff_name: extractName(quoteDoc.dropoffAddress, customer?.name || "Customer"),
-      dropoff_phone_number: extractPhone(quoteDoc.dropoffAddress, customer?.phone_number || "+14155552672"),
+            dropoff_address: addressObjectToString(quoteDoc.dropoffAddress),
+            dropoff_name: extractName(quoteDoc.dropoffAddress, customer?.name || "Customer"),
+            dropoff_phone_number: extractPhone(quoteDoc.dropoffAddress, customer?.phone_number || "+14155552672"),
 
-      manifest_items: (quoteDoc.items || []).map((it) => ({
-        name: it.name,
-        quantity: Number(it.qty) || 1,
-        size: req.body.size || "medium",         // default, or compute by rules
-        price: Number(it.price) || 0,
-      })),
+            manifest_items: (quoteDoc.items || []).map((it) => ({
+                name: it.name,
+                quantity: Number(it.qty) || 1,
+                size: req.body.size || "medium",         // default, or compute by rules
+                price: Number(it.price) || 0,
+            })),
 
-      external_id,
-    };
+            external_id,
+        };
 
-    // Basic validation (avoid Uber rejecting)
-    if (!payload.pickup_address || !payload.dropoff_address) {
-      return res.status(400).json({ message: "Missing pickup/dropoff address" });
+        // Basic validation (avoid Uber rejecting)
+        if (!payload.pickup_address || !payload.dropoff_address) {
+            return res.status(400).json({ message: "Missing pickup/dropoff address" });
+        }
+        if (!payload.pickup_phone_number || !payload.dropoff_phone_number) {
+            // if Uber allows empty phone you can remove this check
+            console.warn("⚠️ Missing phone numbers in payload");
+        }
+
+        const delivery = await createDelivery(payload);
+
+        const doc = await Delivery.create({
+            quoteDbId: quoteDoc._id,
+            quoteId: quoteDoc.quoteId,
+            externalId: external_id,
+            deliveryId: delivery.id,
+            status: delivery.status,
+            raw: delivery,
+        });
+
+        res.json({ delivery: doc, uber_payload_sent: payload });
+    } catch (e) {
+        res.status(400).json(e.response?.data || { message: e.message });
     }
-    if (!payload.pickup_phone_number || !payload.dropoff_phone_number) {
-      // if Uber allows empty phone you can remove this check
-      console.warn("⚠️ Missing phone numbers in payload");
-    }
-
-    const delivery = await createDelivery(payload);
-
-    const doc = await Delivery.create({
-      quoteDbId: quoteDoc._id,
-      quoteId: quoteDoc.quoteId,
-      externalId: external_id,
-      deliveryId: delivery.id,
-      status: delivery.status,
-      raw: delivery,
-    });
-
-    res.json({ delivery: doc, uber_payload_sent: payload });
-  } catch (e) {
-    res.status(400).json(e.response?.data || { message: e.message });
-  }
 });
 
 
@@ -1119,7 +1119,7 @@ function DeliveriesPage({toast}) {
 
           <div className="border rounded-xl overflow-hidden bg-white">
             <div className="grid grid-cols-6 gap-2 p-3 border-b text-xs font-semibold text-slate-600">
-              <div>Status</div><div>DeliveryId</div><div>ExternalId</div><div>Quote</div><div>Created</div><div className="text-right">Actions</div>
+              <div>Status</div><div>DeliveryId</div><div>ExternalId</div><div>Quote</div><div>Tracking</div><div>Created</div><div className="text-right">Actions</div>
             </div>
             <div className="max-h-[520px] overflow-auto">
               {rows.map(d=>(
@@ -1128,6 +1128,20 @@ function DeliveriesPage({toast}) {
                   <div className="truncate text-xs">{d.deliveryId || "-"}</div>
                   <div className="truncate">{d.externalId || "-"}</div>
                   <div className="truncate text-xs text-slate-600">{d.quoteId || "-"}</div>
+                  <div className="truncate">
+                    {d.raw.tracking_url ? (
+                    <a
+                        href={d.raw.tracking_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-blue-600 hover:underline text-xs"
+                    >
+                        Open
+                    </a>
+                    ) : (
+                    <span className="text-xs text-slate-400">-</span>
+                    )}
+                 </div>
                   <div className="text-xs text-slate-500">{new Date(d.createdAt).toLocaleString()}</div>
                   <div className="text-right flex gap-2 justify-end">
                     <Btn variant="outline" onClick={()=>refresh(d._id)}>Refresh</Btn>
