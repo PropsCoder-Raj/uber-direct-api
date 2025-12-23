@@ -534,7 +534,7 @@ app.post("/webhook/uber", async (req, res) => {
         payload: event,
     });
 
-    if (event.kind === "delivery.status_changed") {
+    if (event.kind === "event.delivery_status") {
         await Delivery.findOneAndUpdate(
             { deliveryId: event.delivery_id },
             { status: event.status, raw: event }
