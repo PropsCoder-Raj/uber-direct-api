@@ -534,7 +534,7 @@ app.post("/webhook/uber", async (req, res) => {
         payload: event,
     });
 
-    if (event.event_type === "delivery.status_changed") {
+    if (event.kind === "delivery.status_changed") {
         await Delivery.findOneAndUpdate(
             { deliveryId: event.delivery_id },
             { status: event.status, raw: event }
@@ -1119,7 +1119,7 @@ function DeliveriesPage({toast}) {
 
           <div className="border rounded-xl overflow-hidden bg-white">
             <div className="grid grid-cols-6 gap-2 p-3 border-b text-xs font-semibold text-slate-600">
-              <div>Status</div><div>DeliveryId</div><div>ExternalId</div><div>Quote</div><div>Tracking</div><div>Created</div><div className="text-right">Actions</div>
+              <div>Status</div><div>DeliveryId</div><div>ExternalId</div><div>Quote</div><div>Tracking</div><div>Created</div>
             </div>
             <div className="max-h-[520px] overflow-auto">
               {rows.map(d=>(
@@ -1143,11 +1143,6 @@ function DeliveriesPage({toast}) {
                     )}
                  </div>
                   <div className="text-xs text-slate-500">{new Date(d.createdAt).toLocaleString()}</div>
-                  <div className="text-right flex gap-2 justify-end">
-                    <Btn variant="outline" onClick={()=>refresh(d._id)}>Refresh</Btn>
-                    <Btn variant="outline" onClick={()=>cancel(d._id)}>Cancel</Btn>
-                    <Btn variant="danger" onClick={()=>remove(d._id)}>Delete</Btn>
-                  </div>
                 </div>
               ))}
               {!rows.length ? <div className="p-3 text-sm text-slate-500">No deliveries found</div> : null}
